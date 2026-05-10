@@ -9,7 +9,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Lucide Icons -->
+    <!-- Load Lucide Core (เสถียรกว่าสำหรับการรันแบบ Single File) -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Load html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -27,24 +27,28 @@
         }
         input[type="range"] {
             -webkit-appearance: none;
-            height: 6px;
+            height: 8px;
             background: #e2e8f0;
-            border-radius: 5px;
+            border-radius: 10px;
             background-image: linear-gradient(#3b82f6, #3b82f6);
             background-repeat: no-repeat;
         }
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            height: 20px;
-            width: 20px;
+            height: 24px;
+            width: 24px;
             border-radius: 50%;
             background: #ffffff;
             cursor: pointer;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border: 2px solid #3b82f6;
+            border: 3px solid #3b82f6;
         }
         .battery-segment {
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; margin: 0; 
         }
     </style>
 </head>
@@ -54,12 +58,12 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // ฟังก์ชันช่วยแสดงผลไอคอน Lucide
+        // ส่วนประกอบไอคอนที่แก้ไขปัญหา ReferenceError
         const Icon = ({ name, size = 24, className = "" }) => {
             const iconRef = useRef(null);
             useEffect(() => {
-                if (iconRef.current) {
-                    lucide.createIcons({
+                if (iconRef.current && window.lucide) {
+                    window.lucide.createIcons({
                         targets: [iconRef.current]
                     });
                 }
@@ -101,17 +105,15 @@
                 if (!isNaN(num)) setTargetSoC(num);
             };
 
-            // ฟังก์ชันบันทึกรายงานเป็นรูปภาพ
             const downloadReport = async () => {
-                if (!reportRef.current) return;
+                if (!reportRef.current || typeof html2canvas === 'undefined') return;
                 setIsGenerating(true);
                 
                 try {
                     window.scrollTo(0, 0);
-                    
                     const canvas = await html2canvas(reportRef.current, {
                         backgroundColor: '#f1f5f9',
-                        scale: 3, // ความละเอียดสูงพิเศษ
+                        scale: 3, 
                         useCORS: true,
                         allowTaint: true,
                         width: reportRef.current.offsetWidth,
@@ -180,16 +182,14 @@
                                 
                                 {/* การตั้งค่า */}
                                 <section className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/50">
-                                    <div className="flex items-center gap-2 mb-8">
-                                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
-                                            <Icon name="settings-2" size={18} />
-                                        </div>
-                                        <h2 className="font-bold text-slate-800 uppercase tracking-wide text-sm">Charging Configuration</h2>
+                                    <div className="flex items-center gap-2 mb-8 text-blue-600">
+                                        <Icon name="settings-2" size={18} />
+                                        <h2 className="font-bold text-slate-800 uppercase tracking-wide text-sm leading-none">Charging Configuration</h2>
                                     </div>
 
                                     {/* แถบกราฟิกแบตเตอรี่ */}
                                     <div className="mb-10 px-1">
-                                        <div className="h-8 w-full bg-slate-100 rounded-2xl overflow-hidden flex p-1.5 relative border border-slate-200/50 shadow-inner">
+                                        <div className="h-8 w-full bg-slate-100 rounded-2xl overflow-hidden flex p-1.5 relative border border-slate-200 shadow-inner">
                                             <div 
                                                 className="h-full bg-blue-500/10 rounded-xl battery-segment"
                                                 style={{ width: `${startSoC}%` }}
@@ -202,7 +202,7 @@
                                         
                                         <div className="flex justify-between mt-4 px-2">
                                             <div className="w-24">
-                                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-blue-400">Start</span>
+                                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Start</span>
                                                 <div className="flex items-center gap-1">
                                                     <input 
                                                         type="number" value={startSoC} onChange={(e) => handleStartSoCChange(e.target.value)}
@@ -211,7 +211,7 @@
                                                     <span className="text-blue-600 font-bold text-lg">%</span>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col items-center justify-center">
+                                            <div className="flex items-center justify-center">
                                                 <Icon name="arrow-right" size={20} className="text-slate-300" />
                                             </div>
                                             <div className="w-24 text-right">
@@ -234,36 +234,35 @@
 
                                     <div className="grid grid-cols-3 gap-3">
                                         <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-tighter text-center">Wallbox (kW)</label>
+                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 text-center tracking-tighter">Wallbox (kW)</label>
                                             <input type="number" step="0.1" value={chargerPower} onChange={(e) => setChargerPower(parseFloat(e.target.value))} className="w-full bg-transparent font-bold text-slate-800 outline-none text-center text-lg" />
                                         </div>
                                         <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-tighter text-center">Rate (฿)</label>
+                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 text-center tracking-tighter">Rate (฿)</label>
                                             <input type="number" step="0.1" value={electricityRate} onChange={(e) => setElectricityRate(parseFloat(e.target.value))} className="w-full bg-transparent font-bold text-slate-800 outline-none text-center text-lg" />
                                         </div>
                                         <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
-                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-tighter text-center text-blue-500">km/kWh</label>
+                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 text-center text-blue-500 tracking-tighter">km/kWh</label>
                                             <input type="number" step="0.1" value={kmPerKwh} onChange={(e) => setKmPerKwh(parseFloat(e.target.value))} className="w-full bg-transparent font-bold text-blue-600 outline-none text-center text-lg" />
                                         </div>
                                     </div>
                                 </section>
 
-                                {/* ส่วนสรุปผลการชาร์จ */}
+                                {/* สรุปผลวิเคราะห์ */}
                                 <section className="gradient-dark text-white p-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
                                     <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none text-blue-400">
                                         <Icon name="zap" size={200} />
                                     </div>
                                     
                                     <div className="relative z-10">
-                                        <div className="flex items-center gap-2 mb-10 bg-white/10 w-fit px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
+                                        <div className="flex items-center gap-2 mb-10 bg-white/10 w-fit px-4 py-2 rounded-full border border-white/10">
                                             <Icon name="navigation" size={14} className="text-blue-400" />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Analysis Summary</span>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200 leading-none">Analysis Summary</span>
                                         </div>
 
                                         <div className="text-center mb-12">
                                             <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.3em] block mb-4">ระยะทางที่วิ่งได้เพิ่มขึ้น</span>
                                             <div className="flex items-baseline justify-center gap-3">
-                                                {/* แก้ไขส่วนนี้: ใช้สี Solid แทน Gradient เพื่อให้ตัวเลขแสดงผลในรูปภาพครบถ้วน */}
                                                 <span className="text-8xl font-black tracking-tighter text-blue-500">
                                                     +{results.addedRange}
                                                 </span>
@@ -272,17 +271,17 @@
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4 mb-10">
-                                            <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 text-center backdrop-blur-md">
+                                            <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 text-center">
                                                 <Icon name="clock" size={20} className="mx-auto mb-3 text-blue-400" />
-                                                <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-2">เวลาชาร์จประมาณ</span>
+                                                <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-2 font-medium">เวลาชาร์จประมาณ</span>
                                                 <div className="text-3xl font-black">
-                                                    {results.timeRequired.hours}<span className="text-sm font-medium text-slate-500 ml-1">h</span>
-                                                    {results.timeRequired.minutes}<span className="text-sm font-medium text-slate-500 ml-1">m</span>
+                                                    {results.timeRequired.hours}<span className="text-sm font-medium text-slate-500 ml-1 uppercase">h</span>
+                                                    {results.timeRequired.minutes}<span className="text-sm font-medium text-slate-500 ml-1 uppercase">m</span>
                                                 </div>
                                             </div>
-                                            <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 text-center backdrop-blur-md">
+                                            <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 text-center">
                                                 <Icon name="banknote" size={20} className="mx-auto mb-3 text-green-400" />
-                                                <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-2">ค่าไฟฟ้าประมาณ</span>
+                                                <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-2 font-medium text-center">ค่าไฟฟ้าประมาณ</span>
                                                 <div className="text-3xl font-black text-green-400">
                                                     {results.totalCost}<span className="text-sm font-medium text-slate-500 ml-1">฿</span>
                                                 </div>
@@ -291,12 +290,12 @@
 
                                         <div className="pt-8 border-t border-white/10 flex justify-between px-4">
                                             <div>
-                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Energy Added</p>
-                                                <p className="text-md font-bold text-white">{results.energyNeeded} <span className="text-slate-500 font-normal text-xs">kWh</span></p>
+                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1 text-slate-400">Energy Added</p>
+                                                <p className="text-md font-bold text-white leading-none tracking-tight">{results.energyNeeded} <span className="text-slate-500 font-normal text-xs uppercase">kWh</span></p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Total Grid Use</p>
-                                                <p className="text-md font-bold text-white">{results.gridEnergy} <span className="text-slate-500 font-normal text-xs">kWh</span></p>
+                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1 text-slate-400 text-right">Total Grid Use</p>
+                                                <p className="text-md font-bold text-white leading-none tracking-tight text-right">{results.gridEnergy} <span className="text-slate-500 font-normal text-xs uppercase">kWh</span></p>
                                             </div>
                                         </div>
                                     </div>
@@ -308,14 +307,14 @@
                                         <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
                                             <Icon name="shield-check" size={18} />
                                         </div>
-                                        <h2 className="font-bold text-xs uppercase tracking-[0.15em]">Battery Preservation Tips</h2>
+                                        <h2 className="font-bold text-xs uppercase tracking-[0.15em] leading-none">Battery Preservation Tips</h2>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="bg-white/80 p-4 rounded-2xl border border-emerald-100/50 flex gap-4 items-start">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                                        <div className="bg-white/80 p-4 rounded-2xl border border-emerald-100/50 flex gap-4 items-start shadow-sm">
                                             <div className="text-emerald-500 font-black text-sm">01</div>
                                             <p className="text-[11px] text-emerald-900 font-medium leading-relaxed"><b>20-80% Daily:</b> ช่วงที่แบตเตอรี่เสถียรที่สุดเพื่อยืดอายุเซลล์สูงสุดสำหรับการใช้งานประจำวัน</p>
                                         </div>
-                                        <div className="bg-white/80 p-4 rounded-2xl border border-emerald-100/50 flex gap-4 items-start">
+                                        <div className="bg-white/80 p-4 rounded-2xl border border-emerald-100/50 flex gap-4 items-start shadow-sm">
                                             <div className="text-emerald-500 font-black text-sm">02</div>
                                             <p className="text-[11px] text-emerald-900 font-medium leading-relaxed"><b>Weekly 100%:</b> ควรชาร์จเต็มสัปดาห์ละครั้ง เพื่อปรับสมดุล (BMS Calibration) สำหรับแบต LFP</p>
                                         </div>
@@ -328,14 +327,14 @@
                             </div>
                         </div>
 
-                        {/* ปุ่มกดภายนอก */}
+                        {/* ปุ่มกดบันทึกรายงาน */}
                         <div className="mt-8 px-4 flex flex-col gap-4">
                             <button 
                                 onClick={downloadReport} 
                                 disabled={isGenerating} 
-                                className={`group flex items-center justify-center gap-4 w-full p-6 rounded-[2.5rem] font-bold transition-all shadow-2xl active:scale-95 ${isGenerating ? 'bg-slate-200 text-slate-400' : 'gradient-blue text-white shadow-blue-200'}`}
+                                className={`group flex items-center justify-center gap-4 w-full p-6 rounded-[2.5rem] font-bold transition-all shadow-2xl active:scale-95 ${isGenerating ? 'bg-slate-200 text-slate-400' : 'gradient-blue text-white shadow-blue-200 hover:shadow-blue-300'}`}
                             >
-                                <Icon name={isGenerating ? "loader-2" : "camera"} className={`${isGenerating ? "animate-spin" : "group-hover:scale-110 transition-transform"}`} size={24} />
+                                {isGenerating ? <Icon name="loader-2" className="animate-spin" size={24} /> : <Icon name="camera" className="group-hover:scale-110 transition-transform" size={24} />}
                                 <span className="text-xl">{isGenerating ? 'กำลังสร้างรูปภาพ...' : 'บันทึกรายงานเป็นรูปภาพ'}</span>
                             </button>
                         </div>
