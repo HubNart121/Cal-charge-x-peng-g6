@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XPeng G6 Standard Charging Calculator</title>
+    <title>XPeng G6 Premium Charging Calculator</title>
     <!-- Load React, Babel, and Tailwind CSS -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -14,26 +14,47 @@
     <!-- Load html2canvas -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;600;700&display=swap');
-        body { font-family: 'Anuphan', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap');
+        body { 
+            font-family: 'Anuphan', sans-serif; 
+            background-color: #f1f5f9;
+        }
+        .gradient-blue {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+        .gradient-dark {
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            background-image: linear-gradient(#3b82f6, #3b82f6);
+            background-repeat: no-repeat;
+        }
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
             height: 20px;
-            background: #2563eb;
-            cursor: pointer;
+            width: 20px;
             border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border: 2px solid #3b82f6;
+        }
+        .battery-segment {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
     </style>
 </head>
-<body class="bg-slate-50">
+<body>
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Custom Icon Component to use Lucide in CDN mode
+        // ฟังก์ชันช่วยแสดงผลไอคอน Lucide
         const Icon = ({ name, size = 24, className = "" }) => {
             const iconRef = useRef(null);
             useEffect(() => {
@@ -53,7 +74,7 @@
             const [chargerPower, setChargerPower] = useState(7.4); 
             const [efficiency, setEfficiency] = useState(90); 
             const [electricityRate, setElectricityRate] = useState(4.7);
-            const [kmPerKwh, setKmPerKwh] = useState(6.6);
+            const [kmPerKwh, setKmPerKwh] = useState(7.75);
             const [isGenerating, setIsGenerating] = useState(false);
             const reportRef = useRef(null);
 
@@ -66,40 +87,54 @@
             });
 
             const handleStartSoCChange = (val) => {
-                const num = Math.min(100, Math.max(0, parseInt(val) || 0));
-                setStartSoC(num);
-                if (num > targetSoC) setTargetSoC(num);
+                if (val === '') { setStartSoC(''); return; }
+                const num = Math.min(100, Math.max(0, parseInt(val)));
+                if (!isNaN(num)) {
+                    setStartSoC(num);
+                    if (num > (targetSoC === '' ? 0 : targetSoC)) setTargetSoC(num);
+                }
             };
 
             const handleTargetSoCChange = (val) => {
-                const num = Math.min(100, Math.max(startSoC, parseInt(val) || 0));
-                setTargetSoC(num);
+                if (val === '') { setTargetSoC(''); return; }
+                const num = Math.min(100, Math.max(0, parseInt(val)));
+                if (!isNaN(num)) setTargetSoC(num);
             };
 
+            // ฟังก์ชันบันทึกรายงานเป็นรูปภาพ
             const downloadReport = async () => {
                 if (!reportRef.current) return;
                 setIsGenerating(true);
+                
                 try {
+                    window.scrollTo(0, 0);
+                    
                     const canvas = await html2canvas(reportRef.current, {
-                        backgroundColor: '#f8fafc',
-                        scale: 2,
-                        logging: false,
-                        useCORS: true
+                        backgroundColor: '#f1f5f9',
+                        scale: 3, // ความละเอียดสูงพิเศษ
+                        useCORS: true,
+                        allowTaint: true,
+                        width: reportRef.current.offsetWidth,
+                        height: reportRef.current.offsetHeight,
+                        logging: false
                     });
+                    
                     const image = canvas.toDataURL("image/png");
                     const link = document.createElement('a');
                     link.href = image;
                     link.download = `XPeng-G6-Report-${new Date().getTime()}.png`;
                     link.click();
                 } catch (err) {
-                    console.error("Failed to generate image", err);
+                    console.error("Capture Failed:", err);
                 } finally {
                     setIsGenerating(false);
                 }
             };
 
             useEffect(() => {
-                const socDiff = Math.max(0, targetSoC - startSoC);
+                const sSoC = startSoC === '' ? 0 : startSoC;
+                const tSoC = targetSoC === '' ? 0 : targetSoC;
+                const socDiff = Math.max(0, tSoC - sSoC);
                 const energyNeededToBattery = (batteryCapacity * socDiff) / 100;
                 const energyFromGrid = energyNeededToBattery / (efficiency / 100);
                 const hoursDecimal = energyNeededToBattery / (chargerPower * (efficiency / 100));
@@ -118,96 +153,193 @@
             }, [startSoC, targetSoC, chargerPower, efficiency, electricityRate, kmPerKwh]);
 
             return (
-                <div className="min-h-screen p-4 md:p-8 text-slate-900">
-                    <div className="max-w-xl mx-auto">
-                        <header className="mb-8 text-center">
-                            <div className="inline-flex items-center justify-center p-3 bg-blue-600 text-white rounded-2xl mb-4 shadow-lg shadow-blue-200">
-                                <Icon name="zap" size={32} />
-                            </div>
-                            <h1 className="text-3xl font-bold text-slate-800">XPeng G6 Standard</h1>
-                            <p className="text-slate-500 mt-2">คำนวณเวลา ค่าไฟ และระยะทาง (66.0 kWh)</p>
-                        </header>
-
-                        <div className="grid gap-6">
-                            <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                                <div className="flex items-center gap-2 mb-6 text-blue-600 font-semibold">
-                                    <Icon name="settings" size={20} />
-                                    <h2>ตั้งค่าการชาร์จ</h2>
-                                </div>
-                                <div className="space-y-8">
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-3">
-                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">เริ่มที่ (%)</label>
-                                            <input type="number" value={startSoC} onChange={(e) => handleStartSoCChange(e.target.value)} className="w-full p-2 text-xl font-bold text-blue-600 bg-slate-50 border border-slate-200 rounded-xl outline-none" />
-                                            <input type="range" min="0" max="100" value={startSoC} onChange={(e) => handleStartSoCChange(e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
-                                        </div>
-                                        <div className="space-y-3">
-                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 text-right block">เป้าหมาย (%)</label>
-                                            <input type="number" value={targetSoC} onChange={(e) => handleTargetSoCChange(e.target.value)} className="w-full p-2 text-xl font-bold text-green-600 bg-slate-50 border border-slate-200 rounded-xl outline-none text-right" />
-                                            <input type="range" min="0" max="100" value={targetSoC} onChange={(e) => handleTargetSoCChange(e.target.value)} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer" />
-                                        </div>
+                <div className="min-h-screen pb-12">
+                    <div className="max-w-2xl mx-auto px-2 pt-8">
+                        
+                        {/* ส่วนที่ใช้สร้างรูปภาพ */}
+                        <div ref={reportRef} data-report-container className="bg-slate-100 p-4 md:p-8 rounded-[3rem]">
+                            
+                            {/* ส่วนหัวแอป */}
+                            <header className="flex items-center justify-between mb-8 px-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 gradient-blue rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200">
+                                        <Icon name="zap" size={28} />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">กำลังไฟ (kW)</label>
-                                            <input type="number" step="0.1" value={chargerPower} onChange={(e) => setChargerPower(parseFloat(e.target.value))} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">ค่าไฟ (บาท/หน่วย)</label>
-                                            <input type="number" step="0.01" value={electricityRate} onChange={(e) => setElectricityRate(parseFloat(e.target.value))} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold" />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">อัตราประหยัด (km/kWh)</label>
-                                            <input type="number" step="0.1" value={kmPerKwh} onChange={(e) => setKmPerKwh(parseFloat(e.target.value))} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-blue-600" />
-                                        </div>
+                                    <div>
+                                        <h1 className="text-2xl font-bold text-slate-800 leading-none">XPeng G6</h1>
+                                        <p className="text-sm text-slate-500 font-medium mt-1">Standard Range • 66 kWh</p>
                                     </div>
                                 </div>
-                            </section>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1">Status</p>
+                                    <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">Connected</div>
+                                </div>
+                            </header>
 
-                            <div ref={reportRef} className="p-4 rounded-[40px] -m-4">
-                                <section className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl">
-                                    <div className="flex justify-between items-start mb-6 border-b border-white/10 pb-4">
-                                        <div>
-                                            <h3 className="text-blue-400 font-bold uppercase tracking-widest text-xs">Charging Report</h3>
-                                            <p className="text-white font-semibold">XPeng G6 Standard (66kWh)</p>
+                            <div className="grid gap-6">
+                                
+                                {/* การตั้งค่า */}
+                                <section className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-200/50">
+                                    <div className="flex items-center gap-2 mb-8">
+                                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600">
+                                            <Icon name="settings-2" size={18} />
                                         </div>
-                                        <Icon name="zap" size={20} className="text-blue-500" />
+                                        <h2 className="font-bold text-slate-800 uppercase tracking-wide text-sm">Charging Configuration</h2>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4 text-center">
-                                        <div className="p-6 bg-blue-600/20 rounded-2xl border border-blue-500/30">
-                                            <span className="text-sm font-medium text-blue-300 block mb-1">ระยะทางที่เพิ่มขึ้น</span>
-                                            <div className="text-6xl font-bold text-blue-400">+{results.addedRange}<span className="text-xl ml-2 uppercase">km</span></div>
+
+                                    {/* แถบกราฟิกแบตเตอรี่ */}
+                                    <div className="mb-10 px-1">
+                                        <div className="h-8 w-full bg-slate-100 rounded-2xl overflow-hidden flex p-1.5 relative border border-slate-200/50 shadow-inner">
+                                            <div 
+                                                className="h-full bg-blue-500/10 rounded-xl battery-segment"
+                                                style={{ width: `${startSoC}%` }}
+                                            ></div>
+                                            <div 
+                                                className="h-full gradient-blue rounded-xl battery-segment shadow-md"
+                                                style={{ width: `${Math.max(0, targetSoC - startSoC)}%` }}
+                                            ></div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                                <span className="text-[10px] text-slate-400 block uppercase mb-1">เวลาชาร์จ</span>
-                                                <div className="text-2xl font-bold">{results.timeRequired.hours} ชม. {results.timeRequired.minutes} น.</div>
+                                        
+                                        <div className="flex justify-between mt-4 px-2">
+                                            <div className="w-24">
+                                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-blue-400">Start</span>
+                                                <div className="flex items-center gap-1">
+                                                    <input 
+                                                        type="number" value={startSoC} onChange={(e) => handleStartSoCChange(e.target.value)}
+                                                        className="w-14 text-2xl font-black text-blue-600 bg-transparent outline-none"
+                                                    />
+                                                    <span className="text-blue-600 font-bold text-lg">%</span>
+                                                </div>
                                             </div>
-                                            <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                                                <span className="text-[10px] text-slate-400 block uppercase mb-1">ค่าไฟประมาณ</span>
-                                                <div className="text-2xl font-bold text-green-400">{results.totalCost} บ.</div>
+                                            <div className="flex flex-col items-center justify-center">
+                                                <Icon name="arrow-right" size={20} className="text-slate-300" />
+                                            </div>
+                                            <div className="w-24 text-right">
+                                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 text-green-400">Target</span>
+                                                <div className="flex items-center gap-1 justify-end">
+                                                    <input 
+                                                        type="number" value={targetSoC} onChange={(e) => handleTargetSoCChange(e.target.value)}
+                                                        className="w-14 text-2xl font-black text-green-600 bg-transparent outline-none text-right"
+                                                    />
+                                                    <span className="text-green-600 font-bold text-lg">%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-8 space-y-6">
+                                            <input type="range" min="0" max="100" value={startSoC === '' ? 0 : startSoC} onChange={(e) => handleStartSoCChange(e.target.value)} className="w-full" />
+                                            <input type="range" min="0" max="100" value={targetSoC === '' ? 0 : targetSoC} onChange={(e) => handleTargetSoCChange(e.target.value)} className="w-full" />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
+                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-tighter text-center">Wallbox (kW)</label>
+                                            <input type="number" step="0.1" value={chargerPower} onChange={(e) => setChargerPower(parseFloat(e.target.value))} className="w-full bg-transparent font-bold text-slate-800 outline-none text-center text-lg" />
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
+                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-tighter text-center">Rate (฿)</label>
+                                            <input type="number" step="0.1" value={electricityRate} onChange={(e) => setElectricityRate(parseFloat(e.target.value))} className="w-full bg-transparent font-bold text-slate-800 outline-none text-center text-lg" />
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-3xl border border-slate-100">
+                                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2 tracking-tighter text-center text-blue-500">km/kWh</label>
+                                            <input type="number" step="0.1" value={kmPerKwh} onChange={(e) => setKmPerKwh(parseFloat(e.target.value))} className="w-full bg-transparent font-bold text-blue-600 outline-none text-center text-lg" />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {/* ส่วนสรุปผลการชาร์จ */}
+                                <section className="gradient-dark text-white p-8 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none text-blue-400">
+                                        <Icon name="zap" size={200} />
+                                    </div>
+                                    
+                                    <div className="relative z-10">
+                                        <div className="flex items-center gap-2 mb-10 bg-white/10 w-fit px-4 py-2 rounded-full border border-white/10 backdrop-blur-md">
+                                            <Icon name="navigation" size={14} className="text-blue-400" />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200">Analysis Summary</span>
+                                        </div>
+
+                                        <div className="text-center mb-12">
+                                            <span className="text-xs font-semibold text-slate-400 uppercase tracking-[0.3em] block mb-4">ระยะทางที่วิ่งได้เพิ่มขึ้น</span>
+                                            <div className="flex items-baseline justify-center gap-3">
+                                                {/* แก้ไขส่วนนี้: ใช้สี Solid แทน Gradient เพื่อให้ตัวเลขแสดงผลในรูปภาพครบถ้วน */}
+                                                <span className="text-8xl font-black tracking-tighter text-blue-500">
+                                                    +{results.addedRange}
+                                                </span>
+                                                <span className="text-2xl font-bold text-slate-500 uppercase tracking-widest">km</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 mb-10">
+                                            <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 text-center backdrop-blur-md">
+                                                <Icon name="clock" size={20} className="mx-auto mb-3 text-blue-400" />
+                                                <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-2">เวลาชาร์จประมาณ</span>
+                                                <div className="text-3xl font-black">
+                                                    {results.timeRequired.hours}<span className="text-sm font-medium text-slate-500 ml-1">h</span>
+                                                    {results.timeRequired.minutes}<span className="text-sm font-medium text-slate-500 ml-1">m</span>
+                                                </div>
+                                            </div>
+                                            <div className="p-6 bg-white/5 rounded-[2rem] border border-white/10 text-center backdrop-blur-md">
+                                                <Icon name="banknote" size={20} className="mx-auto mb-3 text-green-400" />
+                                                <span className="text-[10px] text-slate-500 uppercase tracking-widest block mb-2">ค่าไฟฟ้าประมาณ</span>
+                                                <div className="text-3xl font-black text-green-400">
+                                                    {results.totalCost}<span className="text-sm font-medium text-slate-500 ml-1">฿</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-8 border-t border-white/10 flex justify-between px-4">
+                                            <div>
+                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Energy Added</p>
+                                                <p className="text-md font-bold text-white">{results.energyNeeded} <span className="text-slate-500 font-normal text-xs">kWh</span></p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Total Grid Use</p>
+                                                <p className="text-md font-bold text-white">{results.gridEnergy} <span className="text-slate-500 font-normal text-xs">kWh</span></p>
                                             </div>
                                         </div>
                                     </div>
                                 </section>
+
+                                {/* ข้อแนะนำถนอมแบตเตอรี่ */}
+                                <section className="bg-emerald-50/50 p-6 rounded-[2.5rem] border border-emerald-200/50 relative overflow-hidden shadow-sm">
+                                    <div className="flex items-center gap-3 mb-6 text-emerald-800">
+                                        <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                                            <Icon name="shield-check" size={18} />
+                                        </div>
+                                        <h2 className="font-bold text-xs uppercase tracking-[0.15em]">Battery Preservation Tips</h2>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="bg-white/80 p-4 rounded-2xl border border-emerald-100/50 flex gap-4 items-start">
+                                            <div className="text-emerald-500 font-black text-sm">01</div>
+                                            <p className="text-[11px] text-emerald-900 font-medium leading-relaxed"><b>20-80% Daily:</b> ช่วงที่แบตเตอรี่เสถียรที่สุดเพื่อยืดอายุเซลล์สูงสุดสำหรับการใช้งานประจำวัน</p>
+                                        </div>
+                                        <div className="bg-white/80 p-4 rounded-2xl border border-emerald-100/50 flex gap-4 items-start">
+                                            <div className="text-emerald-500 font-black text-sm">02</div>
+                                            <p className="text-[11px] text-emerald-900 font-medium leading-relaxed"><b>Weekly 100%:</b> ควรชาร์จเต็มสัปดาห์ละครั้ง เพื่อปรับสมดุล (BMS Calibration) สำหรับแบต LFP</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <footer className="text-center py-6">
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.4em]">XPeng G6 Assistant • {new Date().toLocaleDateString('th-TH')}</p>
+                                </footer>
                             </div>
-
-                            <button onClick={downloadReport} disabled={isGenerating} className={`flex items-center justify-center gap-3 w-full p-5 rounded-3xl font-bold transition-all shadow-lg ${isGenerating ? 'bg-slate-200 text-slate-500' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
-                                <Icon name={isGenerating ? "loader-2" : "download"} className={isGenerating ? "animate-spin" : ""} />
-                                {isGenerating ? 'กำลังสร้างรูปภาพ...' : 'ดาวน์โหลดรายงาน (PNG)'}
-                            </button>
-
-                            <section className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100 text-sm text-emerald-800">
-                                <div className="flex items-center gap-2 mb-4 text-emerald-700 font-bold uppercase tracking-tight">
-                                    <Icon name="shield-check" size={20} />
-                                    <h2>คำแนะนำในการถนอมแบตเตอรี่</h2>
-                                </div>
-                                <div className="space-y-2">
-                                    <p>• <b>20-80% Rule:</b> ดีที่สุดสำหรับการใช้งานประจำวัน</p>
-                                    <p>• <b>LFP Calibration:</b> รุ่น Standard ควรชาร์จเต็ม 100% สัปดาห์ละครั้ง</p>
-                                </div>
-                            </section>
                         </div>
+
+                        {/* ปุ่มกดภายนอก */}
+                        <div className="mt-8 px-4 flex flex-col gap-4">
+                            <button 
+                                onClick={downloadReport} 
+                                disabled={isGenerating} 
+                                className={`group flex items-center justify-center gap-4 w-full p-6 rounded-[2.5rem] font-bold transition-all shadow-2xl active:scale-95 ${isGenerating ? 'bg-slate-200 text-slate-400' : 'gradient-blue text-white shadow-blue-200'}`}
+                            >
+                                <Icon name={isGenerating ? "loader-2" : "camera"} className={`${isGenerating ? "animate-spin" : "group-hover:scale-110 transition-transform"}`} size={24} />
+                                <span className="text-xl">{isGenerating ? 'กำลังสร้างรูปภาพ...' : 'บันทึกรายงานเป็นรูปภาพ'}</span>
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             );
